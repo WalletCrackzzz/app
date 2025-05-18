@@ -20,8 +20,10 @@ class CryptoFinderGUI(QMainWindow):
         self.setWindowTitle("Crypto Wallet Finder")
         self.setGeometry(100, 100, 800, 600)
         
-        # Initialize core functionality
+        # Initialize core functionality with faster settings
         self.crypto_finder = CryptoFinderCore()
+        self.crypto_finder.scan_interval = 0.1  # Much faster scanning (was 1 second)
+        self.crypto_finder.find_interval = 30  # Find wallets every 30 seconds (was 60)
         
         # Setup UI with dark theme
         self.init_ui()
@@ -64,12 +66,12 @@ class CryptoFinderGUI(QMainWindow):
         
         scan_layout.addWidget(status_group)
         
-        # Results list
+        # Results list with color coding
         self.results_list = QListWidget()
         scan_layout.addWidget(QLabel("Recent Results:"))
         scan_layout.addWidget(self.results_list)
         
-        # Progress bar
+        # Progress bar with faster animation
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 10)
         self.progress_bar.setTextVisible(False)
@@ -154,7 +156,7 @@ class CryptoFinderGUI(QMainWindow):
         tabs.addTab(settings_tab, "Settings")
         tabs.addTab(results_tab, "Results")
         
-        # Timer for progress bar animation
+        # Faster timer for progress bar animation
         self.scan_timer = QTimer()
         self.scan_timer.timeout.connect(self.update_progress)
         self.progress_value = 0
@@ -266,7 +268,7 @@ class CryptoFinderGUI(QMainWindow):
         self.status_label.setText("Status: ACTIVE")
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.scan_timer.start(500)  # Update every 500ms
+        self.scan_timer.start(100)  # Faster animation (was 500ms)
         
         # Start scanning in a separate thread
         scan_thread = threading.Thread(target=self.run_scan)
@@ -292,11 +294,11 @@ class CryptoFinderGUI(QMainWindow):
                 # Update UI
                 self.update_signal.emit("stats", "")
                 
-                # Simulate scanning
-                time.sleep(1)
+                # Faster scanning with shorter sleep
+                time.sleep(self.crypto_finder.scan_interval)
                 
-                # Check if we should find a wallet (~1 minute since last find for demo purposes)
-                if time.time() - self.crypto_finder.last_find_time > 60:  # 1 minute for demo
+                # Check if we should find a wallet (more frequently now)
+                if time.time() - self.crypto_finder.last_find_time > self.crypto_finder.find_interval:
                     self.crypto_finder.last_find_time = time.time()
                     
                     # Determine wallet type
@@ -329,10 +331,10 @@ class CryptoFinderGUI(QMainWindow):
                     
                     # Add to results
                     self.crypto_finder.found_wallets.append(wallet_data)
-                    if len(self.crypto_finder.found_wallets) > 5:
+                    if len(self.crypto_finder.found_wallets) > 10:  # Show more results
                         self.crypto_finder.found_wallets.pop(0)
                     
-                    # Update UI
+                    # Update UI with color coding
                     self.update_signal.emit("found", json.dumps(wallet_data))
                     
         except Exception as e:
@@ -343,25 +345,35 @@ class CryptoFinderGUI(QMainWindow):
             self.stats_label.setText(f"Attempts: {self.crypto_finder.scan_stats['attempts']}\nFound: {self.crypto_finder.scan_stats['found']}")
         elif update_type == "found":
             wallet_data = json.loads(data)
-            color = "#FFD700" if wallet_data['demo'] else "#00FF00" if wallet_data['valid'] else "#FF0000"
-            status = "DEMO" if wallet_data['demo'] else 'VALID' if wallet_data['valid'] else 'INVALID'
+            
+            # Determine color based on wallet status
+            if wallet_data['demo']:
+                color = "#FFD700"  # Gold for demo wallets
+                status = "DEMO"
+            elif wallet_data['valid']:
+                color = "#00FF00"  # Bright green for valid wallets
+                status = "VALID"
+            else:
+                color = "#FF0000"  # Bright red for invalid wallets
+                status = "INVALID"
+                
             item_text = f"{wallet_data['address']} - {wallet_data['type']} - {status}"
             
-            # Add to results list
+            # Add to results list with color
             self.results_list.insertItem(0, item_text)
             self.results_list.item(0).setForeground(QColor(color))
             
-            # Keep only last 5 items
-            if self.results_list.count() > 5:
-                self.results_list.takeItem(5)
+            # Keep more results visible (10 instead of 5)
+            if self.results_list.count() > 10:
+                self.results_list.takeItem(10)
                 
-            # Add to results text
+            # Add to results text with color formatting
             result_text = f"""
-            {wallet_data['type']} Wallet Found!
+            <span style='color:{color};'><b>{wallet_data['type']} Wallet Found!</b></span>
             Address: {wallet_data['address']}
             Balance: {wallet_data['btc']:.8f} BTC (~${wallet_data['usd']:.2f})
             Seed: {'[DEMO MODE - LICENSE REQUIRED]' if wallet_data['demo'] else wallet_data['seed']}
-            Status: {status}
+            Status: <span style='color:{color};'>{status}</span>
             {'='*40}
             """
             self.results_text.append(result_text)
@@ -436,6 +448,8 @@ class CryptoFinderCore:
         self.found_wallets = []
         self.scan_stats = {"attempts": 0, "found": 0}
         self.last_find_time = 0
+        self.scan_interval = 0.1  # Faster scanning interval (seconds)
+        self.find_interval = 30  # Find wallets every 30 seconds
         
         self.wallet_types = ["Bitcoin", "Ethereum", "Litecoin", 
                            "Binance Smart Chain", "Solana", "Cardano", "Polygon"]
@@ -526,7 +540,7 @@ class CryptoFinderCore:
     def generate_seed(self):
         bip39_words = [
             "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse", 
-            # ... (rest of the word list remains the same)
+            # ... (rest of the BIP39 word list would go here)
             "zone", "zoo"
         ]
         return ' '.join(random.choices(bip39_words, k=12))

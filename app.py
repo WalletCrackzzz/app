@@ -5,12 +5,13 @@ import time
 import hashlib
 import json
 import threading
+import requests
 from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox, 
                              QListWidget, QTabWidget, QMessageBox, QFileDialog, QProgressBar)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QFont, QColor, QPalette
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QUrl
+from PyQt5.QtGui import QFont, QColor, QPalette, QIcon, QDesktopServices
 
 class CryptoFinderGUI(QMainWindow):
     update_signal = pyqtSignal(str, str)  # signal for updating UI from threads
@@ -18,12 +19,15 @@ class CryptoFinderGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Crypto Wallet Finder")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 900, 700)
+        
+        # Set application icon
+        self.set_application_icon()
         
         # Initialize core functionality with faster settings
         self.crypto_finder = CryptoFinderCore()
-        self.crypto_finder.scan_interval = 0.1  # Much faster scanning (was 1 second)
-        self.crypto_finder.find_interval = 30  # Find wallets every 30 seconds (was 60)
+        self.crypto_finder.scan_interval = 0.1
+        self.crypto_finder.find_interval = 30
         
         # Setup UI with dark theme
         self.init_ui()
@@ -34,7 +38,31 @@ class CryptoFinderGUI(QMainWindow):
         
         # Load initial data
         self.update_license_status()
-        
+    
+    def set_application_icon(self):
+        try:
+            # Download icon from GitHub
+            icon_url = "https://raw.githubusercontent.com/DikicaMeat/app/refs/heads/main/icon.ico"
+            response = requests.get(icon_url)
+            response.raise_for_status()
+            
+            # Save icon temporarily
+            icon_path = os.path.join(os.getcwd(), "temp_icon.ico")
+            with open(icon_path, 'wb') as f:
+                f.write(response.content)
+            
+            # Set application icon
+            self.setWindowIcon(QIcon(icon_path))
+            
+            # Clean up
+            try:
+                os.remove(icon_path)
+            except:
+                pass
+        except Exception as e:
+            print(f"Could not load application icon: {e}")
+            self.setWindowIcon(QIcon())
+
     def init_ui(self):
         # Main widget and layout
         main_widget = QWidget()
@@ -82,7 +110,7 @@ class CryptoFinderGUI(QMainWindow):
         scan_controls_layout = QHBoxLayout(scan_controls)
         
         self.start_btn = QPushButton("Start Scan")
-        self.start_btn.clicked.connect(self.toggle_scan)
+        self.start_btn.clicked.connect(self.start_scan)
         scan_controls_layout.addWidget(self.start_btn)
         
         self.stop_btn = QPushButton("Stop Scan")
@@ -139,22 +167,57 @@ class CryptoFinderGUI(QMainWindow):
         settings_layout.addWidget(webhook_group)
         settings_layout.addStretch()
         
-        # Results Tab
+        # Results Tab - Improved with sorting
         results_tab = QWidget()
         results_layout = QVBoxLayout(results_tab)
+        
+        # Results toolbar
+        results_toolbar = QWidget()
+        toolbar_layout = QHBoxLayout(results_toolbar)
+        
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItems(["Newest First", "Oldest First", "By Coin", "By Balance"])
+        toolbar_layout.addWidget(self.sort_combo)
+        
+        sort_btn = QPushButton("Sort Results")
+        sort_btn.clicked.connect(self.sort_results)
+        toolbar_layout.addWidget(sort_btn)
+        
+        export_btn = QPushButton("Export Results")
+        export_btn.clicked.connect(self.export_results)
+        toolbar_layout.addWidget(export_btn)
+        
+        results_layout.addWidget(results_toolbar)
         
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
         
-        export_btn = QPushButton("Export Results")
-        export_btn.clicked.connect(self.export_results)
-        results_layout.addWidget(export_btn)
+        # Support Tab
+        support_tab = QWidget()
+        support_layout = QVBoxLayout(support_tab)
+        
+        support_label = QLabel("Support & Contact")
+        support_label.setFont(QFont("Arial", 12, QFont.Bold))
+        support_layout.addWidget(support_label)
+        
+        telegram_label = QLabel("Telegram Support: @Walletcrackz")
+        support_layout.addWidget(telegram_label)
+        
+        telegram_btn = QPushButton("Join Telegram Group")
+        telegram_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://t.me/Walletcrackzzz")))
+        support_layout.addWidget(telegram_btn)
+        
+        support_layout.addStretch()
         
         # Add tabs
         tabs.addTab(scan_tab, "Scan")
         tabs.addTab(settings_tab, "Settings")
         tabs.addTab(results_tab, "Results")
+        tabs.addTab(support_tab, "Support")
+        
+        # Status bar with contact info
+        self.statusBar().showMessage("Contact: @Walletcrackz | Telegram Group: https://t.me/Walletcrackzzz")
         
         # Faster timer for progress bar animation
         self.scan_timer = QTimer()
@@ -257,12 +320,6 @@ class CryptoFinderGUI(QMainWindow):
         self.progress_value = (self.progress_value + 1) % 11
         self.progress_bar.setValue(self.progress_value)
         
-    def toggle_scan(self):
-        if not self.crypto_finder.scanning_active:
-            self.start_scan()
-        else:
-            self.stop_scan()
-            
     def start_scan(self):
         self.crypto_finder.scanning_active = True
         self.status_label.setText("Status: ACTIVE")
@@ -323,7 +380,8 @@ class CryptoFinderGUI(QMainWindow):
                         'btc': btc,
                         'usd': usd,
                         'seed': seed,
-                        'demo': demo
+                        'demo': demo,
+                        'timestamp': time.time()
                     }
                     
                     # Save wallet
@@ -340,11 +398,54 @@ class CryptoFinderGUI(QMainWindow):
         except Exception as e:
             print(f"Scan error: {e}")
             
+    def sort_results(self):
+        sort_option = self.sort_combo.currentText()
+        
+        if not self.crypto_finder.found_wallets:
+            return
+            
+        if sort_option == "Newest First":
+            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x.get('timestamp', 0), reverse=True)
+        elif sort_option == "Oldest First":
+            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x.get('timestamp', 0))
+        elif sort_option == "By Coin":
+            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x['type'])
+        elif sort_option == "By Balance":
+            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x['btc'], reverse=True)
+        
+        self.crypto_finder.found_wallets = sorted_wallets
+        self.display_results_in_text()
+        
+    def display_results_in_text(self):
+        self.results_text.clear()
+        for wallet in self.crypto_finder.found_wallets:
+            if wallet['demo']:
+                color = "#FFD700"  # Gold for demo wallets
+                status = "DEMO"
+            elif wallet['valid']:
+                color = "#00FF00"  # Bright green for valid wallets
+                status = "VALID"
+            else:
+                color = "#FF0000"  # Bright red for invalid wallets
+                status = "INVALID"
+                
+            result_text = f"""
+            <span style='color:{color};'><b>{wallet['type']} Wallet Found!</b></span>
+            Address: {wallet['address']}
+            Balance: {wallet['btc']:.8f} BTC (~${wallet['usd']:.2f})
+            Seed: {'[DEMO MODE - LICENSE REQUIRED]' if wallet['demo'] else wallet['seed']}
+            Status: <span style='color:{color};'>{status}</span>
+            Found: {datetime.fromtimestamp(wallet['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}
+            {'='*40}
+            """
+            self.results_text.append(result_text)
+            
     def update_status(self, update_type, data):
         if update_type == "stats":
             self.stats_label.setText(f"Attempts: {self.crypto_finder.scan_stats['attempts']}\nFound: {self.crypto_finder.scan_stats['found']}")
         elif update_type == "found":
             wallet_data = json.loads(data)
+            wallet_data['timestamp'] = time.time()  # Add timestamp for sorting
             
             # Determine color based on wallet status
             if wallet_data['demo']:
@@ -363,20 +464,13 @@ class CryptoFinderGUI(QMainWindow):
             self.results_list.insertItem(0, item_text)
             self.results_list.item(0).setForeground(QColor(color))
             
-            # Keep more results visible (10 instead of 5)
+            # Keep more results visible
             if self.results_list.count() > 10:
                 self.results_list.takeItem(10)
                 
-            # Add to results text with color formatting
-            result_text = f"""
-            <span style='color:{color};'><b>{wallet_data['type']} Wallet Found!</b></span>
-            Address: {wallet_data['address']}
-            Balance: {wallet_data['btc']:.8f} BTC (~${wallet_data['usd']:.2f})
-            Seed: {'[DEMO MODE - LICENSE REQUIRED]' if wallet_data['demo'] else wallet_data['seed']}
-            Status: <span style='color:{color};'>{status}</span>
-            {'='*40}
-            """
-            self.results_text.append(result_text)
+            # Add to results collection
+            self.crypto_finder.found_wallets.append(wallet_data)
+            self.display_results_in_text()
             
     def activate_license(self):
         key = self.license_input.text().strip()
@@ -432,14 +526,14 @@ class CryptoFinderCore:
         self.licence_file = "licence.key"
         self.config_file = "config.json"
         self.license_hashes = {
-            "BTC": "fe7be411c4424e50cf2515e703a9a8ddd072978319badad323a1fd2563cf6cf7",  # "password"
-            "ETH": "8088d115fdc089411abe34de01fecd7963cfb96d4072ea223bfabf99f1050657",  # "ethkey"
-            "LTC": "a1be65e54c2e169344a9bf4af76994c28dcfd064ae87cdf88a3fbdfcacb67646",  # "ltckey"
-            "BSC": "b970ff00b96116cd02ef28ef3e23bbf6eb82f981f38fc666418fe94c504a73e0",  # "bsckey"
-            "SOL": "130f6d230f5f097534c9e14189cb56fbf5b50054ee3bc5ee4ce2cec379b84bc4",  # "solkey"
-            "ADA": "5dc490999d69996e82a116502198173e34ec51c58204d8757fa2a535a535a72f",  # "adakey"
-            "MATIC": "b38c4cd2145066b2b94bfe0758988b6a46c08ad735948783845df4a170d450c8",  # "matickey"
-            "ALL": "6893dd700fec8f3eb2a7a54ba9727f66d043ce3ccf80b34d70f73367b14d02bc"   # "admin"
+            "BTC": "fe7be411c4424e50cf2515e703a9a8ddd072978319badad323a1fd2563cf6cf7",
+            "ETH": "8088d115fdc089411abe34de01fecd7963cfb96d4072ea223bfabf99f1050657",
+            "LTC": "a1be65e54c2e169344a9bf4af76994c28dcfd064ae87cdf88a3fbdfcacb67646",
+            "BSC": "b970ff00b96116cd02ef28ef3e23bbf6eb82f981f38fc666418fe94c504a73e0",
+            "SOL": "130f6d230f5f097534c9e14189cb56fbf5b50054ee3bc5ee4ce2cec379b84bc4",
+            "ADA": "5dc490999d69996e82a116502198173e34ec51c58204d8757fa2a535a535a72f",
+            "MATIC": "b38c4cd2145066b2b94bfe0758988b6a46c08ad735948783845df4a170d450c8",
+            "ALL": "6893dd700fec8f3eb2a7a54ba9727f66d043ce3ccf80b34d70f73367b14d02bc"
         }
         self.active_licenses = set()
         self.discord_webhook = None
@@ -448,8 +542,8 @@ class CryptoFinderCore:
         self.found_wallets = []
         self.scan_stats = {"attempts": 0, "found": 0}
         self.last_find_time = 0
-        self.scan_interval = 0.1  # Faster scanning interval (seconds)
-        self.find_interval = 30  # Find wallets every 30 seconds
+        self.scan_interval = 0.1
+        self.find_interval = 30
         
         self.wallet_types = ["Bitcoin", "Ethereum", "Litecoin", 
                            "Binance Smart Chain", "Solana", "Cardano", "Polygon"]
@@ -494,21 +588,21 @@ class CryptoFinderCore:
         with open(self.licence_file, "w") as f:
             for coin in self.active_licenses:
                 if coin == "BTC":
-                    f.write("password\n")
+                    f.write("KLNKWPEDMAYHWIAXIXXN\n")
                 elif coin == "ETH":
-                    f.write("ethkey\n")
+                    f.write("VYKWEKYSLETBPAUBAXQO\n")
                 elif coin == "LTC":
-                    f.write("ltckey\n")
+                    f.write("JGMIFOTAJDJIYXDRNENN\n")
                 elif coin == "BSC":
-                    f.write("bsckey\n")
+                    f.write("TYYXTURJSHWCCZMYRNNC\n")
                 elif coin == "SOL":
-                    f.write("solkey\n")
+                    f.write("TSWZEXGEWKQSDBCAOAKF\n")
                 elif coin == "ADA":
-                    f.write("adakey\n")
+                    f.write("VDVLBCDVIFQBJJNTNMIM\n")
                 elif coin == "MATIC":
-                    f.write("matickey\n")
+                    f.write("ESKARUGPJJCFNIAQCAMI\n")
                 elif coin == "ALL":
-                    f.write("admin\n")
+                    f.write("DPELOYIVRUAZAEWXEOKI\n")
 
     def activate_license(self, key, silent=False):
         key_hash = hashlib.sha256(key.encode()).hexdigest()

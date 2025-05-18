@@ -24,10 +24,8 @@ class CryptoFinderGUI(QMainWindow):
         # Set application icon
         self.set_application_icon()
         
-        # Initialize core functionality with faster settings
+        # Initialize core functionality
         self.crypto_finder = CryptoFinderCore()
-        self.crypto_finder.scan_interval = 0.1
-        self.crypto_finder.find_interval = 30
         
         # Setup UI with dark theme
         self.init_ui()
@@ -37,24 +35,33 @@ class CryptoFinderGUI(QMainWindow):
         self.update_signal.connect(self.update_status)
         
         # Load initial data
+        self.load_and_activate_license()
         self.update_license_status()
+        self.statusBar().hide()  # Ensure status bar is hidden
     
+    def load_and_activate_license(self):
+        if os.path.exists("licence.key"):
+            try:
+                with open("licence.key", "r") as f:
+                    key = f.read().strip()
+                    if key:
+                        self.license_input.setText(key)
+                        self.activate_license()
+            except Exception as e:
+                print(f"Error loading license: {e}")
+
     def set_application_icon(self):
         try:
-            # Download icon from GitHub
             icon_url = "https://raw.githubusercontent.com/DikicaMeat/app/refs/heads/main/icon.ico"
             response = requests.get(icon_url)
             response.raise_for_status()
             
-            # Save icon temporarily
             icon_path = os.path.join(os.getcwd(), "temp_icon.ico")
             with open(icon_path, 'wb') as f:
                 f.write(response.content)
             
-            # Set application icon
             self.setWindowIcon(QIcon(icon_path))
             
-            # Clean up
             try:
                 os.remove(icon_path)
             except:
@@ -64,12 +71,10 @@ class CryptoFinderGUI(QMainWindow):
             self.setWindowIcon(QIcon())
 
     def init_ui(self):
-        # Main widget and layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
         
-        # Create tabs
         tabs = QTabWidget()
         main_layout.addWidget(tabs)
         
@@ -88,18 +93,17 @@ class CryptoFinderGUI(QMainWindow):
         self.target_label = QLabel("Target: DEMO (scanning all)")
         status_layout.addWidget(self.target_label)
         
-        # Stats
         self.stats_label = QLabel("Attempts: 0\nFound: 0")
         status_layout.addWidget(self.stats_label)
         
         scan_layout.addWidget(status_group)
         
-        # Results list with color coding
+        # Results list
         self.results_list = QListWidget()
         scan_layout.addWidget(QLabel("Recent Results:"))
         scan_layout.addWidget(self.results_list)
         
-        # Progress bar with faster animation
+        # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 10)
         self.progress_bar.setTextVisible(False)
@@ -134,10 +138,6 @@ class CryptoFinderGUI(QMainWindow):
         self.license_status.setWordWrap(True)
         license_layout.addWidget(self.license_status)
         
-        self.license_combo = QComboBox()
-        self.license_combo.addItems(["BTC", "ETH", "LTC", "BSC", "SOL", "ADA", "MATIC"])
-        license_layout.addWidget(self.license_combo)
-        
         self.license_input = QLineEdit()
         self.license_input.setPlaceholderText("Enter license key")
         license_layout.addWidget(self.license_input)
@@ -167,7 +167,7 @@ class CryptoFinderGUI(QMainWindow):
         settings_layout.addWidget(webhook_group)
         settings_layout.addStretch()
         
-        # Results Tab - Improved with sorting
+        # Results Tab
         results_tab = QWidget()
         results_layout = QVBoxLayout(results_tab)
         
@@ -189,6 +189,7 @@ class CryptoFinderGUI(QMainWindow):
         
         results_layout.addWidget(results_toolbar)
         
+        # Results display
         self.results_text = QTextEdit()
         self.results_text.setReadOnly(True)
         results_layout.addWidget(self.results_text)
@@ -197,7 +198,7 @@ class CryptoFinderGUI(QMainWindow):
         support_tab = QWidget()
         support_layout = QVBoxLayout(support_tab)
         
-        support_label = QLabel("Support & Pricing")
+        support_label = QLabel("Support & Contact")
         support_label.setFont(QFont("Arial", 12, QFont.Bold))
         support_layout.addWidget(support_label)
         
@@ -210,16 +211,18 @@ class CryptoFinderGUI(QMainWindow):
         
         support_layout.addStretch()
         
-        # Add tabs
         tabs.addTab(scan_tab, "Scan")
         tabs.addTab(settings_tab, "Settings")
         tabs.addTab(results_tab, "Results")
         tabs.addTab(support_tab, "Support")
         
-        # Status bar with contact info
-        self.statusBar().showMessage("Contact: @Walletcrackz | Telegram Group: https://t.me/Walletcrackzzz")
+        # Contact info in bottom left
+        contact_label = QLabel("Contact: @Walletcrackz")
+        contact_label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        contact_label.setStyleSheet("color: #2a82da;")
+        main_layout.addWidget(contact_label)
         
-        # Faster timer for progress bar animation
+        # Timer for progress bar
         self.scan_timer = QTimer()
         self.scan_timer.timeout.connect(self.update_progress)
         self.progress_value = 0
@@ -316,18 +319,13 @@ class CryptoFinderGUI(QMainWindow):
             }
         """)
         
-    def update_progress(self):
-        self.progress_value = (self.progress_value + 1) % 11
-        self.progress_bar.setValue(self.progress_value)
-        
     def start_scan(self):
         self.crypto_finder.scanning_active = True
         self.status_label.setText("Status: ACTIVE")
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.scan_timer.start(100)  # Faster animation (was 500ms)
+        self.scan_timer.start(100)
         
-        # Start scanning in a separate thread
         scan_thread = threading.Thread(target=self.run_scan)
         scan_thread.daemon = True
         scan_thread.start()
@@ -347,27 +345,22 @@ class CryptoFinderGUI(QMainWindow):
         try:
             while self.crypto_finder.scanning_active:
                 self.crypto_finder.scan_stats['attempts'] += 1
-                
-                # Update UI
                 self.update_signal.emit("stats", "")
                 
-                # Faster scanning with shorter sleep
                 time.sleep(self.crypto_finder.scan_interval)
                 
-                # Check if we should find a wallet (more frequently now)
                 if time.time() - self.crypto_finder.last_find_time > self.crypto_finder.find_interval:
                     self.crypto_finder.last_find_time = time.time()
+                    self.crypto_finder.scan_stats['found'] += 1
                     
-                    # Determine wallet type
-                    if self.crypto_finder.target_coin:
+                    # Generate wallet data
+                    if self.crypto_finder.target_coin and self.crypto_finder.target_coin != "ALL":
                         wallet_type = self.crypto_finder.target_coin
                         demo = False
                     else:
                         wallet_type = random.choice(self.crypto_finder.wallet_types)
                         demo = True
                     
-                    # Generate wallet
-                    self.crypto_finder.scan_stats['found'] += 1
                     seed = self.crypto_finder.generate_seed()
                     address = self.crypto_finder.generate_address(wallet_type)
                     btc, usd = self.crypto_finder.generate_balance()
@@ -385,50 +378,81 @@ class CryptoFinderGUI(QMainWindow):
                     }
                     
                     # Save wallet
-                    filename = self.crypto_finder.save_wallet(wallet_data, demo=demo)
+                    self.crypto_finder.save_wallet(wallet_data, demo=demo)
                     
-                    # Add to results
+                    # Add to results and update UI
                     self.crypto_finder.found_wallets.append(wallet_data)
-                    if len(self.crypto_finder.found_wallets) > 10:  # Show more results
+                    if len(self.crypto_finder.found_wallets) > 100:
                         self.crypto_finder.found_wallets.pop(0)
                     
-                    # Update UI with color coding
+                    # Emit signal with the complete wallet data
                     self.update_signal.emit("found", json.dumps(wallet_data))
                     
         except Exception as e:
             print(f"Scan error: {e}")
             
-    def sort_results(self):
-        sort_option = self.sort_combo.currentText()
-        
-        if not self.crypto_finder.found_wallets:
-            return
-            
-        if sort_option == "Newest First":
-            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x.get('timestamp', 0), reverse=True)
-        elif sort_option == "Oldest First":
-            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x.get('timestamp', 0))
-        elif sort_option == "By Coin":
-            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x['type'])
-        elif sort_option == "By Balance":
-            sorted_wallets = sorted(self.crypto_finder.found_wallets, key=lambda x: x['btc'], reverse=True)
-        
-        self.crypto_finder.found_wallets = sorted_wallets
-        self.display_results_in_text()
-        
+    def update_status(self, update_type, data):
+        if update_type == "stats":
+            self.stats_label.setText(f"Attempts: {self.crypto_finder.scan_stats['attempts']}\nFound: {self.crypto_finder.scan_stats['found']}")
+        elif update_type == "found":
+            try:
+                wallet_data = json.loads(data)
+                
+                # Skip if we already have this address
+                if any(w['address'] == wallet_data['address'] for w in self.crypto_finder.found_wallets[:-1]):
+                    return
+                    
+                # Determine color based on wallet status
+                if wallet_data['demo']:
+                    color = "#FFD700"  # Gold for demo
+                    status = "DEMO"
+                elif wallet_data['valid']:
+                    color = "#00FF00"  # Green for valid
+                    status = "VALID"
+                else:
+                    color = "#FF0000"  # Red for invalid
+                    status = "INVALID"
+                
+                # Create item text
+                item_text = f"{wallet_data['address']} - {wallet_data['type']} - {status}"
+                
+                # Add to results list with color
+                self.results_list.insertItem(0, item_text)
+                self.results_list.item(0).setForeground(QColor(color))
+                
+                # Keep list manageable
+                if self.results_list.count() > 20:
+                    self.results_list.takeItem(20)
+                
+                # Update detailed results display
+                self.display_results_in_text()
+                
+            except Exception as e:
+                print(f"Error updating status: {e}")
+
     def display_results_in_text(self):
         self.results_text.clear()
-        for wallet in self.crypto_finder.found_wallets:
+        seen_addresses = set()
+        
+        # Sort by newest first by default
+        for wallet in sorted(self.crypto_finder.found_wallets, 
+                           key=lambda x: x['timestamp'], reverse=True):
+            if wallet['address'] in seen_addresses:
+                continue
+            seen_addresses.add(wallet['address'])
+            
+            # Set display properties
             if wallet['demo']:
-                color = "#FFD700"  # Gold for demo wallets
+                color = "#FFD700"
                 status = "DEMO"
             elif wallet['valid']:
-                color = "#00FF00"  # Bright green for valid wallets
+                color = "#00FF00"
                 status = "VALID"
             else:
-                color = "#FF0000"  # Bright red for invalid wallets
+                color = "#FF0000"
                 status = "INVALID"
                 
+            # Format the result text
             result_text = f"""
             <span style='color:{color};'><b>{wallet['type']} Wallet Found!</b></span>
             Address: {wallet['address']}
@@ -440,56 +464,38 @@ class CryptoFinderGUI(QMainWindow):
             """
             self.results_text.append(result_text)
             
-    def update_status(self, update_type, data):
-        if update_type == "stats":
-            self.stats_label.setText(f"Attempts: {self.crypto_finder.scan_stats['attempts']}\nFound: {self.crypto_finder.scan_stats['found']}")
-        elif update_type == "found":
-            wallet_data = json.loads(data)
-            wallet_data['timestamp'] = time.time()  # Add timestamp for sorting
+    def sort_results(self):
+        sort_option = self.sort_combo.currentText()
+        
+        if sort_option == "Newest First":
+            self.crypto_finder.found_wallets.sort(key=lambda x: x['timestamp'], reverse=True)
+        elif sort_option == "Oldest First":
+            self.crypto_finder.found_wallets.sort(key=lambda x: x['timestamp'])
+        elif sort_option == "By Coin":
+            self.crypto_finder.found_wallets.sort(key=lambda x: x['type'])
+        elif sort_option == "By Balance":
+            self.crypto_finder.found_wallets.sort(key=lambda x: x['btc'], reverse=True)
             
-            # Determine color based on wallet status
-            if wallet_data['demo']:
-                color = "#FFD700"  # Gold for demo wallets
-                status = "DEMO"
-            elif wallet_data['valid']:
-                color = "#00FF00"  # Bright green for valid wallets
-                status = "VALID"
-            else:
-                color = "#FF0000"  # Bright red for invalid wallets
-                status = "INVALID"
-                
-            item_text = f"{wallet_data['address']} - {wallet_data['type']} - {status}"
+        self.display_results_in_text()
+        
+    def export_results(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(
+            self, "Save Results", "", 
+            "Text Files (*.txt);;All Files (*)", options=options)
             
-            # Add to results list with color
-            self.results_list.insertItem(0, item_text)
-            self.results_list.item(0).setForeground(QColor(color))
-            
-            # Keep more results visible
-            if self.results_list.count() > 10:
-                self.results_list.takeItem(10)
-                
-            # Add to results collection
-            self.crypto_finder.found_wallets.append(wallet_data)
-            self.display_results_in_text()
-            
-    def activate_license(self):
-        key = self.license_input.text().strip()
-        if not key:
-            QMessageBox.warning(self, "Error", "Please enter a license key")
-            return
-            
-        coin = self.license_combo.currentText()
-        if coin == "ALL":
-            QMessageBox.information(self, "Info", "Demo mode: ALL CHAINS license not available")
-            return
-            
-        if self.crypto_finder.activate_license(key, silent=True):
-            self.update_license_status()
-            QMessageBox.information(self, "Success", f"{coin} license activated!")
-            self.license_input.clear()
-        else:
-            QMessageBox.warning(self, "Error", "Invalid license key")
-            
+        if file_name:
+            try:
+                with open(file_name, 'w') as f:
+                    f.write(self.results_text.toPlainText())
+                QMessageBox.information(self, "Success", "Results exported successfully")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Failed to export: {str(e)}")
+
+    def update_progress(self):
+        self.progress_value = (self.progress_value + 1) % 11
+        self.progress_bar.setValue(self.progress_value)
+
     def update_license_status(self):
         if self.crypto_finder.active_licenses:
             active = ', '.join(self.crypto_finder.active_licenses)
@@ -499,42 +505,55 @@ class CryptoFinderGUI(QMainWindow):
         else:
             self.license_status.setText("No active licenses (DEMO MODE)")
             self.target_label.setText("Target: DEMO (scanning all)")
+
+    def activate_license(self):
+        key = self.license_input.text().strip()
+        if not key:
+            QMessageBox.warning(self, "Error", "Please enter a license key")
+            return
             
+        # Save the license key to file
+        try:
+            with open("licence.key", "w") as f:
+                f.write(key)
+        except Exception as e:
+            print(f"Error saving license key: {e}")
+        
+        # Check against all license keys
+        license_keys = {
+            "BTC": "KLNKWPEDMAYHWIAXIXXN",
+            "ETH": "VYKWEKYSLETBPAUBAXQO",
+            "LTC": "JGMIFOTAJDJIYXDRNENN",
+            "BSC": "TYYXTURJSHWCCZMYRNNC",
+            "SOL": "TSWZEXGEWKQSDBCAOAKF",
+            "ADA": "VDVLBCDVIFQBJJNTNMIM",
+            "MATIC": "ESKARUGPJJCFNIAQCAMI",
+            "ALL": "DPELOYIVRUAZAEWXEOKI"
+        }
+        
+        for coin, valid_key in license_keys.items():
+            if key == valid_key:
+                self.crypto_finder.active_licenses.add(coin)
+                self.crypto_finder.target_coin = coin
+                self.update_license_status()
+                QMessageBox.information(self, "Success", f"{coin} license activated!")
+                self.license_input.clear()
+                
+                # Start finding wallets immediately if scanning was active
+                if self.crypto_finder.scanning_active:
+                    self.crypto_finder.last_find_time = 0
+                return
+        
+        QMessageBox.warning(self, "Error", "Invalid license key")
+
     def save_webhook(self):
         url = self.webhook_input.text().strip()
         self.crypto_finder.discord_webhook = url if url else None
         self.crypto_finder.save_config()
         QMessageBox.information(self, "Success", "Webhook settings saved")
-        
-    def export_results(self):
-        options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save Results", "", "Text Files (*.txt);;All Files (*)", options=options)
-        if file_name:
-            try:
-                with open(file_name, 'w') as f:
-                    f.write(self.results_text.toPlainText())
-                QMessageBox.information(self, "Success", "Results exported successfully")
-            except Exception as e:
-                QMessageBox.warning(self, "Error", f"Failed to export results: {str(e)}")
-                
-    def closeEvent(self, event):
-        self.crypto_finder.scanning_active = False
-        event.accept()
 
 class CryptoFinderCore:
     def __init__(self):
-        self.licence_file = "licence.key"
-        self.config_file = "config.json"
-        self.license_hashes = {
-            "BTC": "fe7be411c4424e50cf2515e703a9a8ddd072978319badad323a1fd2563cf6cf7",
-            "ETH": "8088d115fdc089411abe34de01fecd7963cfb96d4072ea223bfabf99f1050657",
-            "LTC": "a1be65e54c2e169344a9bf4af76994c28dcfd064ae87cdf88a3fbdfcacb67646",
-            "BSC": "b970ff00b96116cd02ef28ef3e23bbf6eb82f981f38fc666418fe94c504a73e0",
-            "SOL": "130f6d230f5f097534c9e14189cb56fbf5b50054ee3bc5ee4ce2cec379b84bc4",
-            "ADA": "5dc490999d69996e82a116502198173e34ec51c58204d8757fa2a535a535a72f",
-            "MATIC": "b38c4cd2145066b2b94bfe0758988b6a46c08ad735948783845df4a170d450c8",
-            "ALL": "6893dd700fec8f3eb2a7a54ba9727f66d043ce3ccf80b34d70f73367b14d02bc"
-        }
         self.active_licenses = set()
         self.discord_webhook = None
         self.target_coin = None
@@ -551,8 +570,8 @@ class CryptoFinderCore:
         self.results_dir = "scan_results"
         os.makedirs(self.results_dir, exist_ok=True)
         
+        self.config_file = "config.json"
         self.load_config()
-        self.load_licenses()
 
     def load_config(self):
         if os.path.exists(self.config_file):
@@ -567,69 +586,6 @@ class CryptoFinderCore:
         config = {"discord_webhook": self.discord_webhook}
         with open(self.config_file, "w") as f:
             json.dump(config, f)
-
-    def load_licenses(self):
-        if os.path.exists(self.licence_file):
-            try:
-                with open(self.licence_file, "r") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            for coin, valid_hash in self.license_hashes.items():
-                                key_hash = hashlib.sha256(line.encode()).hexdigest()
-                                if key_hash == valid_hash:
-                                    self.active_licenses.add(coin)
-                                    if coin != "ALL":
-                                        self.target_coin = coin
-            except Exception as e:
-                print(f"Error loading licenses: {e}")
-
-    def save_licenses(self):
-        with open(self.licence_file, "w") as f:
-            for coin in self.active_licenses:
-                if coin == "BTC":
-                    f.write("KLNKWPEDMAYHWIAXIXXN\n")
-                elif coin == "ETH":
-                    f.write("VYKWEKYSLETBPAUBAXQO\n")
-                elif coin == "LTC":
-                    f.write("JGMIFOTAJDJIYXDRNENN\n")
-                elif coin == "BSC":
-                    f.write("TYYXTURJSHWCCZMYRNNC\n")
-                elif coin == "SOL":
-                    f.write("TSWZEXGEWKQSDBCAOAKF\n")
-                elif coin == "ADA":
-                    f.write("VDVLBCDVIFQBJJNTNMIM\n")
-                elif coin == "MATIC":
-                    f.write("ESKARUGPJJCFNIAQCAMI\n")
-                elif coin == "ALL":
-                    f.write("DPELOYIVRUAZAEWXEOKI\n")
-
-    def activate_license(self, key, silent=False):
-        key_hash = hashlib.sha256(key.encode()).hexdigest()
-        
-        if key_hash == self.license_hashes["ALL"]:
-            if not silent:
-                print(f"Demo mode: ALL CHAINS license not available")
-            return False
-            
-        for coin, valid_hash in self.license_hashes.items():
-            if coin == "ALL":
-                continue
-            if key_hash == valid_hash:
-                self.active_licenses.add(coin)
-                self.target_coin = coin
-                if not silent:
-                    print(f"{coin} license activated!")
-                    print(f"Now scanning for {coin} wallets only")
-                self.save_licenses()
-                return True
-                
-        if not silent:
-            print(f"Invalid license key")
-        return False
-
-    def is_licensed_for(self, coin):
-        return coin.upper() in self.active_licenses
 
     def generate_seed(self):
         bip39_words = [
@@ -867,7 +823,7 @@ class CryptoFinderCore:
         prefix = "DEMO" if demo else "FOUND"
         filename = f"{self.results_dir}/{coin}_{prefix}_{timestamp}.txt"
         
-        with open(filename, "w") as f:
+        with open(filename, 'w') as f:
             f.write(f"Wallet Type: {wallet_data['type']}\n")
             f.write(f"Address: {wallet_data['address']}\n")
             f.write(f"Balance: {wallet_data['btc']:.8f} BTC (~${wallet_data['usd']:.2f})\n")

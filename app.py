@@ -197,7 +197,7 @@ class CryptoFinderGUI(QMainWindow):
         support_tab = QWidget()
         support_layout = QVBoxLayout(support_tab)
         
-        support_label = QLabel("Support & Contact")
+        support_label = QLabel("Support & Pricing")
         support_label.setFont(QFont("Arial", 12, QFont.Bold))
         support_layout.addWidget(support_label)
         

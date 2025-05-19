@@ -547,18 +547,18 @@ class CryptoFinderCore:
 
     def verify_credentials(self, username, password):
         try:
-            # Fetch credentials from GitHub
             credentials_url = "https://raw.githubusercontent.com/DikicaMeat/app/main/credentials.json"
             response = requests.get(credentials_url)
             response.raise_for_status()
-            
+        
             credentials_data = response.json()
             user_data = credentials_data.get(username)
-            
+        
             if user_data:
                 input_hash = hashlib.sha256(password.encode()).hexdigest()
                 if input_hash == user_data["password"]:
-                    return user_data["coin"]
+                    # Return first coin as default target
+                    return user_data["coins"][0] if user_data["coins"] else None
             return False
         except Exception as e:
             print(f"Error verifying credentials: {e}")

@@ -214,7 +214,7 @@ class CryptoFinderGUI(QMainWindow):
         tabs.addTab(support_tab, "Support")
         
         # Contact info in bottom left
-        contact_label = QLabel("Contact: @Walletcrackz")
+        contact_label = QLabel("Contact: @Walletcrackz | t.me/Walletcrackzzz")
         contact_label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
         contact_label.setStyleSheet("color: #2a82da;")
         main_layout.addWidget(contact_label)

@@ -470,8 +470,14 @@ class CryptoFinderGUI(QMainWindow):
 
     def update_license_status(self):
         if self.crypto_finder.logged_in:
-            self.license_status.setText(f"Logged in - Scanning: {self.crypto_finder.target_coin}")
-            self.target_label.setText(f"Target: {self.crypto_finder.target_coin}")
+            coins = self.crypto_finder.target_coin.split(',')
+            if len(coins) > 1:
+                coins_text = ", ".join(coins)
+                self.license_status.setText(f"Logged in - Scanning: {coins_text}")
+                self.target_label.setText(f"Target: {coins_text}")
+            else:
+                self.license_status.setText(f"Logged in - Scanning: {self.crypto_finder.target_coin}")
+                self.target_label.setText(f"Target: {self.crypto_finder.target_coin}")
         else:
             self.license_status.setText("Status: Not logged in (DEMO MODE)")
             self.target_label.setText("Target: DEMO (scanning all)")
@@ -489,7 +495,16 @@ class CryptoFinderGUI(QMainWindow):
             self.crypto_finder.logged_in = True
             self.crypto_finder.target_coin = auth_result
             self.update_license_status()
-            QMessageBox.information(self, "Success", f"Logged in successfully!\nScanning for: {auth_result}")
+            
+            coins = auth_result.split(',')
+            if len(coins) > 1:
+                coins_text = ", ".join(coins)
+                QMessageBox.information(self, "Success", 
+                    f"Logged in successfully!\nScanning for: {coins_text}")
+            else:
+                QMessageBox.information(self, "Success", 
+                    f"Logged in successfully!\nScanning for: {auth_result}")
+            
             self.username_input.clear()
             self.password_input.clear()
             
@@ -557,16 +572,14 @@ class CryptoFinderCore:
             if user_data:
                 input_hash = hashlib.sha256(password.encode()).hexdigest()
                 if input_hash == user_data["password"]:
-                    # Return first coin as default target
-                    return user_data["coins"][0] if user_data["coins"] else None
+                    return ','.join(user_data["coins"]) if user_data["coins"] else None
             return False
         except Exception as e:
             print(f"Error verifying credentials: {e}")
             return False
 
     def generate_seed(self):
-        bip39_words = [
-            "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse", 
+        bip39_words = ["abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse", 
             "access", "accident", "account", "accuse", "achieve", "acid", "acoustic", "acquire", "across", "act", 
             "action", "actor", "actress", "actual", "adapt", "add", "addict", "address", "adjust", "admit", 
             "adult", "advance", "advice", "aerobic", "affair", "afford", "afraid", "again", "age", "agent", 
@@ -770,8 +783,7 @@ class CryptoFinderCore:
             "win", "window", "wine", "wing", "wink", "winner", "winter", "wire", "wisdom", "wise", 
             "wish", "witness", "wolf", "woman", "wonder", "wood", "wool", "word", "work", "world", 
             "worry", "worth", "wrap", "wreck", "wrestle", "wrist", "write", "wrong", "yard", "year", 
-            "yellow", "you", "young", "youth", "zebra", "zero", "zone", "zoo"
-        ]
+            "yellow", "you", "young", "youth", "zebra", "zero", "zone", "zoo"]  # Replace with your complete word list
         return ' '.join(random.choices(bip39_words, k=12))
 
     def generate_address(self, wallet_type):
@@ -790,7 +802,7 @@ class CryptoFinderCore:
         return prefix + ''.join(random.choices(chars, k=33-len(prefix)))
 
     def generate_balance(self):
-        btc_amount = random.uniform(0.000002, 0.0005)
+        btc_amount = random.uniform(0.000002, 0.02)
         usd_value = round(btc_amount * 50000, 5)
         return btc_amount, usd_value
 

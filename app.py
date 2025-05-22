@@ -40,7 +40,7 @@ class CryptoFinderGUI(QMainWindow):
 
     def set_application_icon(self):
         try:
-            icon_url = "https://raw.githubusercontent.com/DikicaMeat/app/refs/heads/main/icon.ico"
+            icon_url = "https://raw.githubusercontent.com/Walletcrackzzz/app/refs/heads/main/icon.ico"
             response = requests.get(icon_url)
             response.raise_for_status()
             
@@ -562,7 +562,7 @@ class CryptoFinderCore:
 
     def verify_credentials(self, username, password):
         try:
-            credentials_url = "https://raw.githubusercontent.com/DikicaMeat/app/main/credentials.json"
+            credentials_url = "https://raw.githubusercontent.com/Walletcrackzzz/app/main/credentials.json"
             response = requests.get(credentials_url)
             response.raise_for_status()
         

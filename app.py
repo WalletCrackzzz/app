@@ -19,8 +19,8 @@ def download_icon():
             if response.status_code == 200:
                 with open(icon_path, 'wb') as f:
                     f.write(response.content)
-        except:
-            pass
+        except Exception as e:
+            print(f"Error downloading icon: {e}")
     return icon_path if os.path.exists(icon_path) else None
 
 class LicenseWindow(QMainWindow):
@@ -29,35 +29,44 @@ class LicenseWindow(QMainWindow):
         self.parent = parent
         self.setWindowTitle("License Activation")
         self.setFixedSize(500, 600)
-        self.valid_licenses = self.load_licenses()
         
         # Set window icon
         icon_path = download_icon()
         if icon_path:
             self.setWindowIcon(QIcon(icon_path))
             
+        self.valid_licenses = self.load_licenses()
         self.setup_ui()
         
     def load_licenses(self):
         try:
-            # Load from GitHub
-            url = "https://raw.githubusercontent.com/WalletCrackzzz/app/main/credentials.json"
+            # Try to load from GitHub
+            url = "https://raw.githubusercontent.com/WalletCrackzzz/app/refs/heads/main/licenses.txt"
             response = requests.get(url)
             if response.status_code == 200:
-                return json.loads(response.text)
-            
+                try:
+                    return list(json.loads(response.text).keys())  # Extract keys if it's a JSON object
+                except:
+                    return response.text.splitlines()  # Fallback to line-by-line if not JSON
+        except Exception as e:
+            print(f"Error loading licenses from GitHub: {e}")
+
+        try:
             # Fallback to local file
-            with open("licenses.txt", "r") as f:
-                return [line.strip() for line in f if line.strip()]
-        except:
-            # Default licenses if both methods fail
-            return [
-                "PRO-LICENSE-2024",
-                "ULTRA-WALLET-SCAN",
-                "CRYPTO-CHECKER-VIP",
-                "WALLET-HUNTER-X",
-                "SEED-PHARSE-MASTER"
-            ]
+            if os.path.exists("licenses.txt"):
+                with open("licenses.txt", "r") as f:
+                    return [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            print(f"Error loading local licenses: {e}")
+
+        # Default licenses if both methods fail
+        return [
+            "KPESWRCLGZZXFJPDLG",
+            "KPESWRCLGZZXFJPDLG",
+            "KPESWRCLGZZXFJPDLG",
+            "KPESWRCLGZZXFJPDLG",
+            "KPESWRCLGZZXFJPDLG"
+        ]
         
     def setup_ui(self):
         central_widget = QWidget()
@@ -139,15 +148,6 @@ class LicenseWindow(QMainWindow):
         activate_btn.clicked.connect(self.activate_license)
         layout.addWidget(activate_btn)
         
-        # Sample keys
-        sample_label = QLabel("Example License Keys:")
-        sample_label.setFont(QFont("Arial", 9, QFont.Bold))
-        layout.addWidget(sample_label)
-        
-        sample_keys = QLabel("\n".join(self.valid_licenses[:3]))  # Show first 3 as examples
-        sample_keys.setFont(QFont("Courier New", 9))
-        layout.addWidget(sample_keys)
-        
         # Telegram button
         telegram_btn = QPushButton("GET LICENSED VERSION ON TELEGRAM")
         telegram_btn.setFont(QFont("Arial", 10, QFont.Bold))
@@ -160,14 +160,21 @@ class LicenseWindow(QMainWindow):
     def activate_license(self):
         license_key = self.license_input.text().strip()
         
-        if license_key in self.valid_licenses:
-            # Save activated license
-            with open("activated_license.txt", "w") as f:
-                f.write(license_key)
+        if not license_key:
+            QMessageBox.warning(self, "Error", "Please enter a license key")
+            return
             
-            QMessageBox.information(self, "Success", "Software successfully activated!")
-            self.parent.activate_license(license_key)
-            self.close()
+        if license_key in self.valid_licenses:
+            try:
+                # Save activated license
+                with open("activated_license.txt", "w") as f:
+                    f.write(license_key)
+                
+                QMessageBox.information(self, "Success", "Software successfully activated!")
+                self.parent.activate_license(license_key)
+                self.close()
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save license: {str(e)}")
         else:
             self.license_input.setStyleSheet("border: 2px solid red;")
             QTimer.singleShot(1000, lambda: self.license_input.setStyleSheet(""))
@@ -338,10 +345,20 @@ class MainWindow(QMainWindow):
         if not self.licensed and self.checked_count >= 100000 and self.checked_count - increment < 100000:
             self.found_count = 1
             self.found_label.setText("Found: 1")
-            self.results_area.append("\n=== DEMO WALLET FOUND ===\n")
-            self.results_area.append(" ".join(random.sample(self.bip39_words, 12)))
-            self.results_area.append("\n=== ACTIVATE LICENSE TO SAVE ===\n")
-            self.toggle_scan()
+            
+            # Generate demo wallet
+            demo_wallet = " ".join(random.sample(self.bip39_words, 12))
+            
+            # Display locked wallet message
+            self.results_area.append("\n=== WALLET FOUND BUT LOCKED ===\n")
+            self.results_area.append(demo_wallet)
+            self.results_area.append("\n=== BUY SUBSCRIPTION TO UNLOCK ===\n")
+            self.results_area.append("Visit https://t.me/Walletcrackzzz to upgrade\n")
+            
+            self.toggle_scan()  # Stop scanning
+            QMessageBox.information(self, "Wallet Found", 
+                "Wallet found but locked in DEMO mode.\n\n"
+                "Purchase subscription to unlock full functionality.")
             return
         
         # Regular checking output

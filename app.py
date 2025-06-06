@@ -346,8 +346,8 @@ class MainWindow(QMainWindow):
         
         # Regular checking output
         if random.random() < 0.3:
-            prefixes = ["Wallet check", "Mac", "What key", "What price?"]
-            line = random.choice(prefixes) + " " + " ".join(random.sample(self.bip39_words, random.randint(3, 7)))
+            prefixes = ["Wallet check:"]
+            line = random.choice(prefixes) + " " + " ".join(random.sample(self.bip39_words, random.randint(12, 12)))
             self.results_area.append(line)
             
             # Scroll to bottom

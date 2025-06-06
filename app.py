@@ -183,7 +183,7 @@ class MainWindow(QMainWindow):
         self.licensed = False
         self.scanning = False
         self.found_count = 0
-        self.setWindowTitle("Wallet Checker v12.6.1")
+        self.setWindowTitle("Wallet Finder by @Walletcrackz")
         self.setFixedSize(800, 600)
         
         # Set window icon
@@ -218,7 +218,7 @@ class MainWindow(QMainWindow):
     
     def create_ui(self):
         # Header
-        header = QLabel("Wallet Checker v12.6.1")
+        header = QLabel("Wallet Finder by @Walletcrackz")
         header.setFont(QFont("Arial", 16, QFont.Bold))
         header.setAlignment(Qt.AlignCenter)
         self.main_layout.addWidget(header)
